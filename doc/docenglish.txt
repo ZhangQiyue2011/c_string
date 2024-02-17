@@ -1,0 +1,260 @@
+cstr_substr
+
+Extracts a substring from a c_string.
+
+c
+c_string cstr_substr(const c_string *s, size_t pos, size_t len);
+Parameters
+
+s: Pointer to the source c_string from which to extract the substring.
+pos: Starting position, indicating the index from which the substring extraction begins.
+len: Length of the substring to extract.
+Return Value
+
+Returns a new c_string containing the extracted substring from the source c_string.
+Description
+
+The cstr_substr function extracts a substring from the given source c_string. It starts at the specified position pos and extracts a character sequence of length len. If pos is outside the bounds of the source c_string or if the length len exceeds the remaining length of the source c_string, the behavior is undefined.
+
+The returned c_string is created by allocating new memory, and it is the responsibility of the caller to release this memory using the free_cstr function when it is no longer needed.
+
+cstr_print
+
+Prints a c_string to the standard output (typically a terminal or console).
+
+c
+void cstr_print(const c_string *s);
+Parameters
+
+s: Pointer to the c_string to be printed.
+Return Value
+
+None.
+Description
+
+The cstr_print function prints the content of a c_string to the standard output device (typically a terminal or console). It uses printf or a similar function to perform the printing operation, ensuring that null characters ('\0') within the c_string are not interpreted as the end of the string.
+
+This function is primarily used for debugging and logging purposes to visualize the content of a c_string on the console. It does not return any value and does not modify the passed c_string.
+Documentation for c_string Functions
+
+cstr_fprint
+
+Prototype: int cstr_fprint(FILE*const fl, const c_string*s)
+Description: Prints the c_string s to the file stream fl.
+Parameters:
+fl: A pointer to a FILE object representing the output stream.
+s: A pointer to a c_string object containing the string to be printed.
+Return Value: The number of characters successfully printed, or EOF if an error occurs.
+cstr_scan
+
+Prototype: int cstr_scan(c_string*s)
+Description: Reads characters from standard input until a whitespace character, tab, or newline is encountered, and stores them in the c_string s.
+Parameters:
+s: A pointer to a c_string object where the read characters will be stored.
+Return Value: 1 if successful, EOF if the end of file is reached.
+cstr_fscan
+
+Prototype: int cstr_fscan(FILE*const fl, c_string*s)
+Description: Reads characters from the given file stream fl until a whitespace character, tab, or newline is encountered, and stores them in the c_string s.
+Parameters:
+fl: A pointer to a FILE object representing the input stream.
+s: A pointer to a c_string object where the read characters will be stored.
+Return Value: 1 if successful, EOF if the end of file is reached.
+cstr_fgets
+
+Prototype: int cstr_fgets(c_string*s, FILE*const stream)
+Description: Reads characters from the given file stream stream until a newline character or the end of file is encountered, and stores them in the c_string s. If a newline is encountered, it is also stored in the string.
+Parameters:
+s: A pointer to a c_string object where the read characters will be stored.
+stream: A pointer to a FILE object representing the input stream.
+Return Value: The number of characters successfully read, or EOF if an error occurs.
+cstr_pop
+
+Prototype: bool cstr_pop(c_string*s)
+Description: Removes the last character from the c_string s if it exists, and returns a boolean indicating the success of the operation.
+Parameters:
+s: A pointer to a c_string object.
+Return Value: true if the operation is successful (i.e., the string was not empty), false otherwise.
+cstr_fill
+
+Prototype: bool cstr_fill(c_string*a, size_t start, const c_string*b)
+Description: Inserts the c_string b into c_string a at the specified position start. If the insertion causes a to be too small to hold the new content, true is returned indicating failure.
+Parameters:
+a: A pointer to the destination c_string object.
+start: The position at which to insert b.
+b: A pointer to the source c_string object.
+Return Value: true if the operation fails (e.g., due to insufficient space), false otherwise.
+cstr_reserve
+
+Prototype: bool cstr_reserve(c_string*s, size_t start, size_t length)
+Description: Adjusts the size of the c_string s to have uninitialized space of the specified length after the position start. If memory reallocation fails, true is returned indicating failure. Otherwise, the existing content is moved from the start position to accommodate the new space.
+Parameters:
+s: A pointer to the c_string object.
+start: The position after which to add the uninitialized space.
+length: The size of the uninitialized space to add.
+Return Value: true if memory reallocation fails, false otherwise.
+
+cstr_free Function
+
+Prototype: void cstr_free(c_string *s)
+Description: Frees the memory allocated for the data member of the c_string structure pointed to by s. This function should be used to release the memory allocated for a c_string object when it is no longer needed.
+Parameters:
+s: A pointer to a c_string object.
+Return Value: None.
+
+cstr_free_high Function
+
+Prototype: void cstr_free_high(size_t size, ...)
+Description: Frees the memory allocated for multiple c_string objects. This function takes a variable number of c_string pointers as arguments and frees the memory allocated for their data members. The number of c_string objects to be freed is specified by the size argument.
+Parameters:
+size: The number of c_string objects to be freed.
+...: A variable number of c_string pointers.
+Return Value: None.
+Usage Example:
+
+c
+#include <stdarg.h>  
+#include <stdlib.h>  
+  
+// Assuming c_string is defined as:  
+typedef struct {  
+    char *data;  
+    size_t length;  
+} c_string;  
+  
+void cstr_free(c_string *s) {  
+    free(s->data);  
+}  
+  
+void cstr_free_high(size_t size, ...) {  
+    va_list valist;  
+    va_start(valist, size);  
+    for (size_t i = 0; i < size; ++i) {  
+        c_string *str = va_arg(valist, c_string *);  
+        free(str->data);  
+    }  
+    va_end(valist);  
+}  
+  
+int main() {  
+    c_string str1 = {"Hello", 5};  
+    c_string str2 = {"World", 5};  
+  
+    // Free the memory allocated for str1 and str2  
+    cstr_free_high(2, &str1, &str2);  
+  
+    return 0;  
+}
+In the example above, cstr_free_high is used to free the memory allocated for str1 and str2 simultaneously. The function cstr_free could also be used to free the memory for each c_string object individually.
+
+Title: Documentation for cstr_fprint, cstr_scan, cstr_fscan, cstr_fgets, cstr_pop, cstr_fill, and cstr_reserve Functions
+
+I. cstr_fprint
+
+Function Prototype:
+
+c
+int cstr_fprint(const char* format, const char* str, FILE* stream);
+Function Description:
+
+The cstr_fprint function is used to print a cstr string (const char* str) to a specified file stream (FILE* stream) according to a specified format (const char* format).
+
+Parameters:
+
+format: Format string that can contain format specifiers, specifying how to print the cstr string.
+str: The cstr string to be printed.
+stream: The target file stream for writing the printed content.
+Return Value:
+
+Returns a non-negative integer on successful printing, representing the number of characters printed successfully.
+Returns a negative value on failure.
+II. cstr_scan
+
+Function Prototype:
+
+c
+const char* cstr_scan(const char* str, const char* format);
+Function Description:
+
+The cstr_scan function searches for a part in the cstr string (const char* str) that matches the specified format (const char* format) and returns the starting position of the matching part.
+
+Parameters:
+
+str: The cstr string to be searched.
+format: The format string to be searched, which can contain format specifiers.
+Return Value:
+
+If a matching part is found, it returns a pointer to the starting position of the matching part.
+If no matching part is found, it returns NULL.
+III. cstr_fscan
+
+Function Prototype:
+
+c
+int cstr_fscan(const char* format, FILE* stream, cstr_t* str);
+Function Description:
+
+The cstr_fscan function reads a string from a specified file stream (FILE* stream) according to a specified format (const char* format) and stores it in a cstr_t* str.
+
+Parameters:
+
+format: Format string specifying how to read the string from the file stream.
+stream: The source file stream for reading the string.
+str: A pointer to a cstr_t type for storing the read string.
+Return Value:
+
+Returns a non-negative integer on successful reading, representing the number of characters read successfully.
+Returns a negative value on failure or when reaching the end of the file.
+IV. cstr_fgets
+
+Function Prototype:
+
+c
+int cstr_fgets(cstr_t* str, int size, FILE* stream);
+Function Description:
+
+The cstr_fgets function reads a line of string from a specified file stream (FILE* stream) and stores it in a cstr_t* str.
+
+Parameters:
+
+str: A pointer to a cstr_t type for storing the read string.
+size: The maximum number of characters (including the null character) that str can accommodate.
+stream: The source file stream for reading the string.
+Return Value:
+
+Returns a non-negative integer on successful reading, representing the number of characters read successfully (excluding the null character).
+Returns a negative value on failure or when reaching the end of the file.
+V. cstr_pop
+
+Function Prototype:
+
+c
+void cstr_pop(cstr_t* str);
+Function Description:
+
+The cstr_pop function is used to remove the last character from a cstr_t* str.
+
+Parameters:
+
+str: A pointer to a cstr_t type from which the last character will be removed.
+Return Value:
+
+No return value.
+VI. cstr_fill
+
+Function Prototype:
+
+c
+void cstr_fill(cstr_t* str, int size, char c);
+Function Description:
+
+The cstr_fill function fills the first size characters of a cstr_t* str with a specified character c.
+
+Parameters:
+
+str: A pointer to a cstr_t type to be filled.
+size: The number of characters to be filled.
+c: The character to be used for filling.
+Return Value:
+
+No return value.
