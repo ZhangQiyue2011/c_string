@@ -13,16 +13,17 @@ typedef struct c_string
     char *data;
 } c_string;
 
-bool init_cstr(c_string *s)
+bool cstr_recapa(c_string *s, size_t size);
+
+void init_cstr(c_string *s)
 {
     s->capa = 1;
     s->data = (char *)malloc(sizeof(char));
     if (s->data == NULL)
     {
-        return true;
+        return;
     }
     s->data[0] = '\0';
-    return false;
 }
 
 c_string make_cstr(const char *c)
@@ -39,27 +40,39 @@ c_string make_cstr(const char *c)
     return s;
 }
 
+c_string make_cstr_set(size_t elements, int data_char)
+{
+    c_string s;
+    s.capa = elements + 1;
+    s.data = (char *)malloc(s.capa * sizeof(char));
+    if (s.data == NULL)
+    {
+        // fprintf(stderr, "Memory allocation failed!\n");
+        return s;
+    }
+    memset(s.data, data_char, elements);
+    s.data[elements] = '\0';
+    return s;
+}
+
+c_string make_cstr_chr(char c)
+{
+    c_string s;
+    s.capa = 2;
+    s.data = (char *)malloc(2 * sizeof(char));
+    if (s.data == NULL)
+    {
+        return s;
+    }
+    s.data[0] = c;
+    s.data[1] = '\0';
+    return s;
+}
+
 size_t cstrlen(const c_string *s)
 {
     return strlen(s->data);
 }
-
-/*void cstrcat(c_string *a, c_string *b)
-{
-    size_t sz1 = cstrlen(a), sz2 = cstrlen(b);
-    a->capa = sz1 + sz2 + 1ull;
-    a->data = (char *)realloc(a->data, sizeof(char) * a->capa);
-    if (a->data == NULL)
-    {
-        //fprintf(stderr, "Memory reallocation failed!\n");
-        return;
-    }
-    for (size_t i = 0; i < sz2; ++i)
-    {
-        a->data[sz1 + i] = b->data[i];
-    }
-    a->data[sz1 + sz2] = '\0';
-}*/
 
 bool cstrcat(c_string *a, const c_string *b)
 {
@@ -67,40 +80,16 @@ bool cstrcat(c_string *a, const c_string *b)
     size_t fewest_capa = sz1 + sz2 + 1ull;
     if (a->capa < fewest_capa)
     {
-        char *new_data = (char *)realloc(a->data, sizeof(char) * fewest_capa);
-        if (new_data == NULL)
+        if (cstr_recapa(a, fewest_capa))
         {
-            //fprintf(stderr, "Memory reallocation failed!\n");
-            return 1;
-        }
-        a->capa = fewest_capa;
-        a->data = new_data;
-    }
-    strcat(a->data, b->data);
-    return 0;
-}
-
-/*bool cstrcat(c_string *a, const c_string *b)
-{
-    size_t sz1 = cstrlen(a);
-    size_t sz2 = cstrlen(b);
-    size_t new_capa = sz1 + sz2 + 1;
-    if (a->capa < new_capa)
-    {
-        char *new_data = (char *)realloc(a->data, new_capa);
-        if (new_data == NULL)
-        {
-            free(a->data);
-            a->data = NULL;
-            a->capa = 0;
             return true;
         }
-        a->data = new_data;
-        a->capa = new_capa;
+        
     }
-    strcat(a->data, b->data);
+    memcpy(a->data + sz1, b->data, sz2);
+    a->data[fewest_capa - 1] = '\0';
     return false;
-}*/
+}
 
 c_string init_cstrcpy(c_string *a, const c_string *b)
 {
@@ -130,21 +119,26 @@ int cstrcmp(const c_string *a, const c_string *b)
     return strcmp(a->data, b->data);
 }
 
-size_t cstrcspn(const c_string *a, const c_string *b)
+bool cstr_simplify(c_string *s)
 {
-    return strcspn(a->data, b->data);
-}
-
-char *cstrstr(const c_string *a, const c_string *b)
-{
-    return strstr(a->data, b->data);
+    size_t sz = cstrlen(s) + 1;
+    if (sz == s->capa)
+    {
+        return false;
+    }
+    if (cstr_recapa(s, sz))
+    {
+        return true;
+    }
+    
+    return false;
 }
 
 c_string cstr_substr(const c_string *s, size_t start, size_t length)
 {
     c_string res;
     res.capa = length + 1;
-    res.data = (char *)malloc( res.capa * sizeof(char) );
+    res.data = (char *)malloc(res.capa * sizeof(char));
     for (size_t i = 0; i < length; ++i)
     {
         res.data[i] = s->data[i + start];
@@ -182,12 +176,11 @@ int cstr_scan(c_string *s)
         if (i == s->capa - 1)
         {
             s->capa <<= 1ull;
-            s->data = (char *)realloc(s->data, s->capa * sizeof(char));
-            if (s->data == NULL)
+            if (cstr_recapa(s, s->capa))
             {
-                // fprintf(stderr, "Memory reallocation failed!\n");
                 return -1;
             }
+            
         }
 
         s->data[i++] = (char)ch; // 存储字符到字符串中
@@ -218,10 +211,8 @@ int cstr_fscan(FILE *const fl, c_string *s)
         if (i == s->capa - 1)
         {
             s->capa <<= 1ull;
-            s->data = (char *)realloc(s->data, s->capa * sizeof(char));
-            if (s->data == NULL)
+            if (cstr_recapa(s, s->capa))
             {
-                // fprintf(stderr, "Memory reallocation failed!\n");
                 return -1;
             }
         }
@@ -245,12 +236,11 @@ int cstr_fgets(c_string *s, FILE *const stream)
         if (i == s->capa - 1)
         {
             s->capa <<= 1ull;
-            s->data = (char *)realloc(s->data, s->capa * sizeof(char));
-            if (s->data == NULL)
+            if (cstr_recapa(s, s->capa))
             {
-                // fprintf(stderr, "Memory reallocation failed!\n");
                 return -1;
             }
+            
         }
 
         s->data[i++] = (char)ch;
@@ -258,6 +248,32 @@ int cstr_fgets(c_string *s, FILE *const stream)
     if (ch == '\n')
     {
         s->data[i++] = '\n';
+    }
+    s->data[i] = '\0';
+    return i;
+}
+
+int cstr_fgetline(c_string *s, FILE *const stream, int delim, bool reserve)
+{
+    size_t i = 0;
+    int ch;
+    while ((ch = getc(stream)) != EOF && ch != delim)
+    {
+        if (i == s->capa - 1)
+        {
+            s->capa <<= 1ull;
+            if (cstr_recapa(s, s->capa))
+            {
+                return -1;
+            }
+            
+        }
+
+        s->data[i++] = (char)ch;
+    }
+    if (reserve && ch == delim)
+    {
+        s->data[i++] = (char)delim;
     }
     s->data[i] = '\0';
     return i;
@@ -281,8 +297,40 @@ bool cstr_fill(c_string *a, size_t start, const c_string *b)
     {
         return true;
     }
-    //strcpy(a + start, b);
-    memcpy(a->data + start, b->data, sz2 * sizeof(char) );
+    // strcpy(a + start, b);
+    memcpy(a->data + start, b->data, sz2 * sizeof(char));
+    return false;
+}
+
+bool cstr_fill_unsafe(c_string *a, size_t start, const c_string *b)
+{
+    size_t sz2 = cstrlen(b);
+    memcpy(a->data + start, b->data, sz2 * sizeof(char));
+    return false;
+}
+
+bool cstr_fill_unsafe_capacity(c_string *a, size_t start, const c_string *b)
+{
+    size_t sz1 = cstrlen(a), sz2 = cstrlen(b), sz, capa;
+    if (start + sz2 > sz1)
+    {
+        sz = sz2 + start;
+        capa = sz + 1;
+        if (capa > a->capa)
+        {
+            if (cstr_recapa(a, capa))
+            {
+                return true;
+            }
+            
+        }
+        memcpy(a->data + start, b->data, sz2 * sizeof(char));
+        a->data[sz] = '\0';
+        return false;
+    }
+    sz = sz1;
+    capa = sz + 1;
+    memcpy(a->data + start, b->data, sz2 * sizeof(char));
     return false;
 }
 
@@ -291,74 +339,43 @@ bool cstr_reserve(c_string *s, size_t start, size_t length)
     size_t sz = cstrlen(s), sz2 = sz + length + 1;
     if (sz2 > s->capa)
     {
-        char *new_data = (char *)realloc(s->data, sz2 * sizeof(char) );
-        if (new_data == NULL)
+        if (cstr_recapa(s, sz2))
         {
             return true;
         }
-        s->capa = sz2;
-        s->data = new_data;
+        
     }
     if (sz - start < length)
     {
         memset(s->data + sz, s->data[start], length + start - sz);
     }
-    size_t sz_start = sz - start;
-    for (size_t i = 0; i < sz_start; ++i)
-    {
-        s->data[sz - i - 1 + length] = s->data[sz - i - 1];
-    }
+    memmove(s->data + start + length, s->data + start, sz);
     s->data[sz + length] = '\0';
     return false;
 }
 
-bool cstr_reserve_set(c_string *s, size_t start, size_t length, int val)
+bool cstr_reserve_unsafe(c_string *s, size_t start, size_t length)
 {
-    if (val == 0)
-    {
-        return true;
-    }
     size_t sz = cstrlen(s), sz2 = sz + length + 1;
     if (sz2 > s->capa)
     {
-        char *new_data = (char *)realloc(s->data, sz2 * sizeof(char) );
-        if (new_data == NULL)
+        if (cstr_recapa(s, sz2))
         {
             return true;
         }
-        s->capa = sz2;
-        s->data = new_data;
+        
     }
-    size_t sz_start = sz - start;
+    /*if (sz - start < length)
+    {
+        memset(s->data + sz, s->data[start], length + start - sz);
+    }*/
+    /*size_t sz_start = sz - start;
     for (size_t i = 0; i < sz_start; ++i)
     {
         s->data[sz - i - 1 + length] = s->data[sz - i - 1];
-    }
+    }*/
+    memmove(s->data + start + length, s->data + start, sz);
     s->data[sz + length] = '\0';
-    memset(s->data + start, val, length);
-    return false;
-}
-
-bool cstr_reserve_cpy(c_string *s, size_t start, const c_string *a)
-{
-    size_t length = cstrlen(a), sz = cstrlen(s), sz2 = sz + length + 1;
-    if (sz2 > s->capa)
-    {
-        char *new_data = (char *)realloc(s->data, sz2 * sizeof(char) );
-        if (new_data == NULL)
-        {
-            return true;
-        }
-        s->capa = sz2;
-        s->data = new_data;
-    }
-    size_t sz_start = sz - start;
-    for (size_t i = 0; i < sz_start; ++i)
-    {
-        s->data[sz - i - 1 + length] = s->data[sz - i - 1];
-    }
-    s->data[sz + length] = '\0';
-    memcpy(s->data + start, a->data, length);
     return false;
 }
 
@@ -375,6 +392,167 @@ bool cstr_delete(c_string *s, size_t start, size_t length)
         s->data[i - length] = s->data[i];
     }
     s->data[sz - length] = '\0';
+    return false;
+}
+
+bool cstr_recapa(c_string *s, size_t size)
+{
+    char *new_data = (char *)realloc(s->data, size * sizeof(char));
+    if (new_data == NULL)
+    {
+        return true;
+    }
+    s->data = new_data;
+    s->capa = size;
+    return false;
+}
+
+void cstr_pull(c_string *s, const char *c)
+{
+    size_t the_fewest_capa = strlen(c) + 1;
+    if (s->capa < the_fewest_capa)
+    {
+        if (cstr_recapa(s, the_fewest_capa))
+        {
+            return;
+        }
+        
+    }
+    strcpy(s->data, c);
+}
+
+void cstr_pull_set(c_string *s, size_t elements, int data_char)
+{
+    if (s->capa <= elements)
+    {
+        if (cstr_recapa(s, elements + 1))
+        {
+            return;
+        }
+    }
+    memset(s->data, data_char, elements);
+    s->data[elements] = '\0';
+}
+
+void cstr_pull_chr(c_string *s, char c)
+{
+    if (s->capa < 2)
+    {
+        if (cstr_recapa(s, 2))
+        {
+            return;
+        }
+    }
+    s->data[0] = c;
+    s->data[1] = '\0';
+}
+
+size_t cstr_find(const c_string *s, const c_string *sub)
+{
+    size_t str_len = cstrlen(s), substr_len = cstrlen(sub);
+    if (substr_len == 0)
+    {
+        return 0;
+    }
+    if (str_len < substr_len)
+    {
+        return -1;
+    }
+    for (size_t i = 0; i <= str_len - substr_len; ++i)
+    {
+        size_t j;
+        for (j = 0; j < substr_len; ++j)
+        {
+            if (s->data[i + j] != sub->data[j])
+            {
+                goto find_label;
+            }
+        }
+        return i;
+    find_label:
+    }
+    return -1;
+}
+
+size_t cstr_rfind(const c_string *s, const c_string *sub)
+{
+    size_t str_len = cstrlen(s), substr_len = cstrlen(sub);
+    if (substr_len == 0)
+    {
+        return str_len - 1;
+    }
+    if (str_len < substr_len)
+    {
+        return -1;
+    }
+    for (size_t i = str_len - substr_len; i != (size_t)-1; --i)
+    {
+        size_t j;
+        for (j = 0; j < substr_len; ++j)
+        {
+            if (s->data[i + j] != sub->data[j])
+            {
+                goto rfind_label;
+            }
+        }
+        return i;
+    rfind_label:
+    }
+    return -1;
+}
+
+size_t find_first_of(const c_string *s, char ch)
+{
+    size_t str_len = cstrlen(s);
+    if (str_len == 0)
+    {
+        return -1;
+    }
+    for (size_t i = 0; i < str_len; ++i)
+    {
+        if (s->data[i] == ch)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+size_t find_last_of(const c_string *s, char ch)
+{
+    size_t str_len = cstrlen(s);
+    if (str_len == 0)
+    {
+        return -1;
+    }
+    for (size_t i = str_len - 1; i != (size_t)-1; --i)
+    {
+        if (s->data[i] == ch)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void cstr_reverse(c_string *s)
+{
+    for (size_t i = 0, j = cstrlen(s) - 1; i < j; ++i, --j)
+    {
+        s->data[i] = s->data[i] ^ s->data[j];
+        s->data[j] = s->data[j] ^ s->data[i];
+        s->data[i] = s->data[i] ^ s->data[j];
+    }
+}
+
+bool cstr_isempty(c_string *s)
+{
+    return s->data[0] == '\0';
+}
+
+void cstr_clear(c_string *s)
+{
+    s->data[0] = '\0';
 }
 
 void cstr_free(c_string *s)
@@ -388,7 +566,7 @@ void cstr_free_high(size_t size, ...)
     va_start(valist, size);
     for (size_t i = 0; i < size; ++i)
     {
-        free(va_arg(valist, c_string *)->data);
+        free(va_arg(valist, const c_string *)->data);
     }
     va_end(valist);
 }
