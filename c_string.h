@@ -1,17 +1,14 @@
 #ifndef C_STRING_H
 #define C_STRING_H
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <ctype.h>
-#include <stdbool.h>
+#include "c_string_include_headers.h"
 
 typedef struct c_string
 {
     size_t capa;
     char *data;
 } c_string;
+
+typedef size_t len_t;
 
 bool cstr_recapa(c_string *s, size_t size);
 
@@ -30,6 +27,20 @@ c_string make_cstr(const char *c)
 {
     c_string s;
     s.capa = strlen(c) + 1;
+    s.data = (char *)malloc(s.capa * sizeof(char));
+    if (s.data == NULL)
+    {
+        // fprintf(stderr, "Memory allocation failed!\n");
+        return s;
+    }
+    strcpy(s.data, c);
+    return s;
+}
+
+c_string make_cstr_len(const char *c, len_t len)
+{
+    c_string s;
+    s.capa = len + 1;
     s.data = (char *)malloc(s.capa * sizeof(char));
     if (s.data == NULL)
     {
@@ -134,15 +145,17 @@ bool cstr_simplify(c_string *s)
     return false;
 }
 
-c_string cstr_substr(const c_string *s, size_t start, size_t length)
+c_string cstr_substr(const c_string *s, size_t start, size_t length, len_t s_len)
 {
     c_string res;
+    if (start + length > s_len)
+    {
+        res.data = NULL;
+        return res;
+    }
     res.capa = length + 1;
     res.data = (char *)malloc(res.capa * sizeof(char));
-    for (size_t i = 0; i < length; ++i)
-    {
-        res.data[i] = s->data[i + start];
-    }
+    memcpy(res.data, s->data + start, length);
     res.data[length] = '\0';
     return res;
 }
@@ -158,7 +171,7 @@ int cstr_fprint(FILE *const fl, const c_string *s)
 }
 
 // 假设getchar是可用的，但在非标准库环境中，你需要用适合该环境的函数替换它
-int cstr_scan(c_string *s)
+int cstr_scan(c_string *s, len_t *len)
 {
     int ch;
     while ((ch = getchar()) != EOF && isspace(ch))
@@ -190,10 +203,11 @@ int cstr_scan(c_string *s)
 
     // 如果读取了至少一个非空白字符，则返回成功读取的项数（在这种情况下是1）
     // 否则，如果遇到EOF而没有读取任何字符，则返回EOF（但这种情况在上面已经处理过了）
+    *len = i;
     return i > 0 ? 1 : EOF;
 }
 
-int cstr_fscan(FILE *const fl, c_string *s)
+int cstr_fscan(FILE *const fl, c_string *s, len_t *len)
 {
     int ch;
     while ((ch = getc(fl)) != EOF && isspace(ch))
@@ -224,10 +238,11 @@ int cstr_fscan(FILE *const fl, c_string *s)
 
     // 如果读取了至少一个非空白字符，则返回成功读取的项数（在这种情况下是1）
     // 否则，如果遇到EOF而没有读取任何字符，则返回EOF（但这种情况在上面已经处理过了）
+    *len = i;
     return i > 0 ? 1 : EOF;
 }
 
-int cstr_fgets(c_string *s, FILE *const stream)
+int cstr_fgets(c_string *s, FILE *const stream, len_t *len)
 {
     size_t i = 0;
     int ch;
@@ -250,10 +265,11 @@ int cstr_fgets(c_string *s, FILE *const stream)
         s->data[i++] = '\n';
     }
     s->data[i] = '\0';
-    return i;
+    *len = i;
+    return 1;
 }
 
-int cstr_fgetline(c_string *s, FILE *const stream, int delim, bool reserve)
+int cstr_fgetline(c_string *s, FILE *const stream, int delim, bool reserve, len_t *len)
 {
     size_t i = 0;
     int ch;
@@ -276,12 +292,12 @@ int cstr_fgetline(c_string *s, FILE *const stream, int delim, bool reserve)
         s->data[i++] = (char)delim;
     }
     s->data[i] = '\0';
-    return i;
+    *len = i;
+    return 1;
 }
 
-bool cstr_pop(c_string *s)
+bool cstr_pop(c_string *s, len_t len)
 {
-    size_t len = cstrlen(s);
     if (len == 0)
     {
         return true;
@@ -290,31 +306,29 @@ bool cstr_pop(c_string *s)
     return false;
 }
 
-bool cstr_fill(c_string *a, size_t start, const c_string *b)
+bool cstr_fill(c_string *a, size_t start, const c_string *b, len_t a_len, len_t b_len)
 {
-    size_t sz1 = cstrlen(a), sz2 = cstrlen(b);
-    if (sz1 - start < sz2)
+    if (a_len - start < b_len)
     {
         return true;
     }
     // strcpy(a + start, b);
-    memcpy(a->data + start, b->data, sz2 * sizeof(char));
+    memcpy(a->data + start, b->data, b_len * sizeof(char));
     return false;
 }
 
-bool cstr_fill_unsafe(c_string *a, size_t start, const c_string *b)
+bool cstr_fill_unsafe(c_string *a, size_t start, const c_string *b, len_t b_len)
 {
-    size_t sz2 = cstrlen(b);
-    memcpy(a->data + start, b->data, sz2 * sizeof(char));
+    memcpy(a->data + start, b->data, b_len * sizeof(char));
     return false;
 }
 
-bool cstr_fill_unsafe_capacity(c_string *a, size_t start, const c_string *b)
+bool cstr_fill_unsafe_capacity(c_string *a, size_t start, const c_string *b, len_t a_len, len_t b_len)
 {
-    size_t sz1 = cstrlen(a), sz2 = cstrlen(b), sz, capa;
-    if (start + sz2 > sz1)
+    size_t sz, capa;
+    if (start + b_len > a_len)
     {
-        sz = sz2 + start;
+        sz = b_len + start;
         capa = sz + 1;
         if (capa > a->capa)
         {
@@ -324,42 +338,42 @@ bool cstr_fill_unsafe_capacity(c_string *a, size_t start, const c_string *b)
             }
             
         }
-        memcpy(a->data + start, b->data, sz2 * sizeof(char));
+        memcpy(a->data + start, b->data, b_len * sizeof(char));
         a->data[sz] = '\0';
         return false;
     }
-    sz = sz1;
+    sz = a_len;
     capa = sz + 1;
-    memcpy(a->data + start, b->data, sz2 * sizeof(char));
+    memcpy(a->data + start, b->data, b_len * sizeof(char));
     return false;
 }
 
-bool cstr_reserve(c_string *s, size_t start, size_t length)
+bool cstr_reserve(c_string *s, size_t start, size_t length, len_t s_len)
 {
-    size_t sz = cstrlen(s), sz2 = sz + length + 1;
-    if (sz2 > s->capa)
+    size_t s_len_2 = s_len + length + 1;
+    if (s_len_2 > s->capa)
     {
-        if (cstr_recapa(s, sz2))
+        if (cstr_recapa(s, s_len_2))
         {
             return true;
         }
         
     }
-    if (sz - start < length)
+    if (s_len - start < length)
     {
-        memset(s->data + sz, s->data[start], length + start - sz);
+        memset(s->data + s_len, s->data[start], length + start - s_len);
     }
-    memmove(s->data + start + length, s->data + start, sz);
-    s->data[sz + length] = '\0';
+    memmove(s->data + start + length, s->data + start, s_len);
+    s->data[s_len + length] = '\0';
     return false;
 }
 
-bool cstr_reserve_unsafe(c_string *s, size_t start, size_t length)
+bool cstr_reserve_unsafe(c_string *s, size_t start, size_t length, len_t s_len)
 {
-    size_t sz = cstrlen(s), sz2 = sz + length + 1;
-    if (sz2 > s->capa)
+    size_t s_len_2 = s_len + length + 1;
+    if (s_len_2 > s->capa)
     {
-        if (cstr_recapa(s, sz2))
+        if (cstr_recapa(s, s_len_2))
         {
             return true;
         }
@@ -374,24 +388,101 @@ bool cstr_reserve_unsafe(c_string *s, size_t start, size_t length)
     {
         s->data[sz - i - 1 + length] = s->data[sz - i - 1];
     }*/
-    memmove(s->data + start + length, s->data + start, sz);
-    s->data[sz + length] = '\0';
+    memmove(s->data + start + length, s->data + start, s_len);
+    s->data[s_len + length] = '\0';
     return false;
 }
 
-bool cstr_delete(c_string *s, size_t start, size_t length)
+bool cstr_reserve_set(c_string *s, size_t start, size_t length, int setch, len_t s_len)
 {
-    size_t sz = cstrlen(s);
-    if (start >= sz || start + length > sz)
+    size_t s_len_2 = s_len + length + 1;
+    if (s_len_2 > s->capa)
+    {
+        if (cstr_recapa(s, s_len_2))
+        {
+            return true;
+        }
+        
+    }
+    /*if (sz - start < length)
+    {
+        memset(s->data + sz, s->data[start], length + start - sz);
+    }*/
+    /*size_t sz_start = sz - start;
+    for (size_t i = 0; i < sz_start; ++i)
+    {
+        s->data[sz - i - 1 + length] = s->data[sz - i - 1];
+    }*/
+    memmove(s->data + start + length, s->data + start, s_len);
+    memset(s->data + start, setch, length);
+    s->data[s_len + length] = '\0';
+    return false;
+}
+
+bool cstr_reserve_cpy(c_string *s, size_t start, c_string *sub, len_t s_len, len_t sub_len)
+{
+    size_t s_len_2 = s_len + sub_len + 1;
+    if (s_len_2 > s->capa)
+    {
+        if (cstr_recapa(s, s_len_2))
+        {
+            return true;
+        }
+        
+    }
+    /*if (sz - start < length)
+    {
+        memset(s->data + sz, s->data[start], length + start - sz);
+    }*/
+    /*size_t sz_start = sz - start;
+    for (size_t i = 0; i < sz_start; ++i)
+    {
+        s->data[sz - i - 1 + length] = s->data[sz - i - 1];
+    }*/
+    memmove(s->data + start + sub_len, s->data + start, s_len);
+    memcpy(s->data + start, sub->data, sub_len);
+    s->data[s_len + sub_len] = '\0';
+    return false;
+}
+
+bool cstr_insert(c_string *s, size_t start, c_string *sub, len_t s_len, len_t sub_len)
+{
+    size_t s_len_2 = s_len + sub_len + 1;
+    if (s_len_2 > s->capa)
+    {
+        if (cstr_recapa(s, s_len_2))
+        {
+            return true;
+        }
+        
+    }
+    /*if (sz - start < length)
+    {
+        memset(s->data + sz, s->data[start], length + start - sz);
+    }*/
+    /*size_t sz_start = sz - start;
+    for (size_t i = 0; i < sz_start; ++i)
+    {
+        s->data[sz - i - 1 + length] = s->data[sz - i - 1];
+    }*/
+    memmove(s->data + start + sub_len, s->data + start, s_len);
+    memcpy(s->data + start, sub->data, sub_len);
+    s->data[s_len + sub_len] = '\0';
+    return false;
+}
+
+bool cstr_delete(c_string *s, size_t start, size_t length, len_t s_len)
+{
+    if (start >= s_len || start + length > s_len)
     {
         return true;
     }
     size_t startplength = start + length;
-    for (size_t i = startplength; i < sz; ++i)
+    for (size_t i = startplength; i < s_len; ++i)
     {
         s->data[i - length] = s->data[i];
     }
-    s->data[sz - length] = '\0';
+    s->data[s_len - length] = '\0';
     return false;
 }
 
@@ -407,103 +498,175 @@ bool cstr_recapa(c_string *s, size_t size)
     return false;
 }
 
-void cstr_pull(c_string *s, const char *c)
+bool cstr_pull(c_string *s, const char *c)
 {
     size_t the_fewest_capa = strlen(c) + 1;
     if (s->capa < the_fewest_capa)
     {
         if (cstr_recapa(s, the_fewest_capa))
         {
-            return;
+            return true;
         }
         
     }
     strcpy(s->data, c);
+    return false;
 }
 
-void cstr_pull_set(c_string *s, size_t elements, int data_char)
+bool cstr_pull_set(c_string *s, size_t elements, int data_char)
 {
     if (s->capa <= elements)
     {
         if (cstr_recapa(s, elements + 1))
         {
-            return;
+            return true;
         }
     }
     memset(s->data, data_char, elements);
     s->data[elements] = '\0';
+    return false;
 }
 
-void cstr_pull_chr(c_string *s, char c)
+bool cstr_pull_chr(c_string *s, char c)
 {
     if (s->capa < 2)
     {
         if (cstr_recapa(s, 2))
         {
-            return;
+            return true;
         }
     }
     s->data[0] = c;
     s->data[1] = '\0';
+    return false;
 }
 
-size_t cstr_find(const c_string *s, const c_string *sub)
+c_string cstr_steal_len(char *ch, len_t size);
+
+c_string cstr_steal(char *ch)
 {
-    size_t str_len = cstrlen(s), substr_len = cstrlen(sub);
-    if (substr_len == 0)
+    return cstr_steal_len(ch, strlen(ch));
+}
+
+c_string cstr_steal_len(char *ch, len_t size)
+{
+    c_string res;
+    res.capa = size + 1;
+    res.data = ch;
+    return res;
+}
+
+size_t cstr_find(c_string *s, c_string *sub, size_t start, len_t s_len, len_t sub_len)
+{
+#if 0
+    "Sunday Algorithm"
+#endif
+    s->data += start;
+    s_len -= start;
+    if (sub_len == 0) return 0;
+    if (s_len < sub_len) return -1;
+    size_t shift_table[256];
+    for (int i = 0; i < 256; ++i)
     {
-        return 0;
+        shift_table[i] = sub_len + 1;
     }
-    if (str_len < substr_len)
+    int shcnt = 0;
+    unsigned char uc;
+    for (size_t i = sub_len - 1; i != (size_t)-1; --i)
     {
-        return -1;
-    }
-    for (size_t i = 0; i <= str_len - substr_len; ++i)
-    {
-        size_t j;
-        for (j = 0; j < substr_len; ++j)
+        uc = (unsigned char)sub->data[i];
+        if (shift_table[uc] == sub_len + 1)
         {
-            if (s->data[i + j] != sub->data[j])
-            {
-                goto find_label;
-            }
+            ++shcnt;
+            shift_table[uc] = sub_len - i;
         }
-        return i;
-    find_label:
+        if (shcnt == 255)
+        {
+            break;
+        }
+        
+    }
+    /*unsigned char uc;
+    for (size_t i = 0; i < sub_len; ++i)
+    {
+        uc = (unsigned char)sub->data[i];
+        shift_table[uc] = sub_len - i;
+    }*/
+    
+    size_t i = 0;
+    while (i < s_len - sub_len)
+    {
+        size_t j = 0;
+        while (j < sub_len && s->data[i + j] == sub->data[j])
+        {
+            ++j;
+        }
+        if (j == sub_len) return i;
+        uc = (unsigned char)s->data[i + sub_len];
+        i += shift_table[uc];
     }
     return -1;
 }
 
-size_t cstr_rfind(const c_string *s, const c_string *sub)
+size_t cstr_rfind_func(const c_string *s, const c_string *sub, size_t start, len_t s_len, len_t sub_len)
 {
-    size_t str_len = cstrlen(s), substr_len = cstrlen(sub);
-    if (substr_len == 0)
+#if 0
+    "Sunday Algorithm"
+#endif
+    sub_len = (start > sub_len) ? sub_len : start;
+    if (sub_len == 0) return sub_len;
+    if (s_len < sub_len) return -1;
+    size_t shift_table[256];
+    for (int i = 0; i < 256; ++i)
     {
-        return str_len - 1;
+        shift_table[i] = sub_len + 1;
     }
-    if (str_len < substr_len)
+    int shcnt = 0;
+    unsigned char uc;
+    for (size_t i = sub_len - 1; i != (size_t)-1; --i)
     {
-        return -1;
-    }
-    for (size_t i = str_len - substr_len; i != (size_t)-1; --i)
-    {
-        size_t j;
-        for (j = 0; j < substr_len; ++j)
+        uc = (unsigned char)sub->data[i];
+        if (shift_table[uc] == sub_len + 1)
         {
-            if (s->data[i + j] != sub->data[j])
-            {
-                goto rfind_label;
-            }
+            ++shcnt;
+            shift_table[uc] = i + 1;
         }
-        return i;
-    rfind_label:
+        if (shcnt == 255)
+        {
+            break;
+        }
+        
+    }
+    /*unsigned char uc;
+    for (size_t i = 0; i < sub_len; ++i)
+    {
+        uc = (unsigned char)sub->data[i];
+        shift_table[uc] = sub_len - i;
+    }*/
+    size_t e = s_len - 1, se = sub_len - 1;
+    size_t i = 0;
+    while (i < s_len - sub_len)
+    {
+        size_t j = 0;
+        while (j < sub_len && s->data[e - i - j] == sub->data[se - j])//
+        {
+            ++j;
+        }
+        if (j == sub_len) return s_len - i - j;
+        uc = (unsigned char)s->data[e - i - sub_len];
+        i += shift_table[uc];
     }
     return -1;
 }
 
-size_t find_first_of(const c_string *s, char ch)
+size_t cstr_rfind(const c_string *s, const c_string *sub, size_t start, len_t s_len, len_t sub_len)
 {
-    size_t str_len = cstrlen(s);
+    return cstr_rfind_func(s, sub, start + sub_len, s_len, sub_len);
+}
+
+size_t cstr_find_first_of(const c_string *s, char ch, len_t str_len)
+{
+    //size_t str_len = cstrlen(s);
     if (str_len == 0)
     {
         return -1;
@@ -518,9 +681,9 @@ size_t find_first_of(const c_string *s, char ch)
     return -1;
 }
 
-size_t find_last_of(const c_string *s, char ch)
+size_t cstr_find_last_of(const c_string *s, char ch, len_t str_len)
 {
-    size_t str_len = cstrlen(s);
+    //size_t str_len = cstrlen(s);
     if (str_len == 0)
     {
         return -1;
@@ -535,9 +698,9 @@ size_t find_last_of(const c_string *s, char ch)
     return -1;
 }
 
-void cstr_reverse(c_string *s)
+void cstr_reverse(c_string *s, len_t s_len)
 {
-    for (size_t i = 0, j = cstrlen(s) - 1; i < j; ++i, --j)
+    for (size_t i = 0, j = s_len - 1; i < j; ++i, --j)
     {
         s->data[i] = s->data[i] ^ s->data[j];
         s->data[j] = s->data[j] ^ s->data[i];
